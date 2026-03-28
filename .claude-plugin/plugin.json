@@ -1,0 +1,19 @@
+{
+  "name": "ai-dev-harness",
+  "version": "1.0.0",
+  "description": "Claude Code マルチエージェント開発ハーネス — TDD実装・3軸レビュー・自動修正ループ・包括レビューをスキルとして提供",
+  "author": {
+    "name": "kinako0626-ota"
+  },
+  "repository": "https://github.com/kinako0626-ota/ai-dev-harness",
+  "license": "MIT",
+  "keywords": ["tdd", "code-review", "multi-agent", "quality", "harness"],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "hooks": "./hooks/hooks.json",
+  "userConfig": {
+    "analyze_command": {
+      "description": "静的解析コマンド（例: npx eslint . && npx tsc --noEmit, fvm flutter analyze, ruff check . && mypy .）"
+    }
+  }
+}

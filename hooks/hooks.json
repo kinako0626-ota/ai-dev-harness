@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.analyze_command} 2>&1",
+            "timeout": 120000
+          }
+        ]
+      }
+    ]
+  }
+}
