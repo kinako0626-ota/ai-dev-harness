@@ -1,0 +1,232 @@
+# ai-dev-harness configuration
+# ===========================================================================
+# This file defines your project's development harness settings.
+# Copy this file to `harness.yaml` and edit to match your project.
+# Run `./init.sh` after editing to generate Claude Code configuration files.
+# ===========================================================================
+
+version: "1.0"
+
+# ---------------------------------------------------------------------------
+# Project Identity
+# ---------------------------------------------------------------------------
+project:
+  name: "my-project"              # Used in file paths, team names, and task IDs
+  language: "en"                   # Output language for generated files: "ja" | "en"
+
+# ---------------------------------------------------------------------------
+# Language & Framework
+# ---------------------------------------------------------------------------
+# Determines which templates and lint rules are applied.
+stack:
+  primary_language: "typescript"   # dart | typescript | python | go | rust
+  framework: "nextjs"              # flutter | nextjs | fastapi | express | django
+                                   #   Other values are accepted; they simply skip
+                                   #   framework-specific rule generation.
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+# Shell commands that skills and hooks invoke.
+# Paths are relative to the project root unless noted otherwise.
+commands:
+  # Static analysis / lint — REQUIRED.
+  # This command is run automatically before every `git commit` (via hook)
+  # and after every implementation task.
+  analyze: "npx eslint . && npx tsc --noEmit"
+  # Examples by stack:
+  #   Flutter:  "fvm flutter analyze"
+  #   Python:   "ruff check . && mypy ."
+  #   Go:       "golangci-lint run ./..."
+  #   Rust:     "cargo clippy -- -D warnings"
+
+  # Test runner — REQUIRED.
+  # Used by /implement (TDD cycle) and /code-review (coverage check).
+  test: "npx jest"
+  # Examples by stack:
+  #   Flutter:  "fvm flutter test"
+  #   Python:   "pytest"
+  #   Go:       "go test ./..."
+  #   Rust:     "cargo test"
+
+  # Code generation — optional.
+  # Run before analyze/test when the project uses codegen (Prisma, build_runner, etc.).
+  build_generated: ""
+  # Examples:
+  #   Flutter (freezed/json_serializable):
+  #     "fvm flutter pub run build_runner build --delete-conflicting-outputs"
+  #   Prisma:
+  #     "npx prisma generate"
+  #   Go (protobuf):
+  #     "buf generate"
+
+  # Format command — optional.
+  # If set, applied before commit hook alongside analyze.
+  format: ""
+  # Examples:
+  #   TypeScript: "npx prettier --write ."
+  #   Dart:       "dart format ."
+  #   Python:     "ruff format ."
+  #   Go:         "gofmt -w ."
+  #   Rust:       "cargo fmt"
+
+# ---------------------------------------------------------------------------
+# Architecture
+# ---------------------------------------------------------------------------
+# Defines your project's architectural layers so that skills can enforce
+# dependency direction and generate appropriate test scaffolding.
+architecture:
+  style: "layered"                 # clean | layered | hexagonal | none
+                                   #   "clean"     — strict dependency inversion
+                                   #   "layered"   — traditional N-tier
+                                   #   "hexagonal" — ports & adapters
+                                   #   "none"      — no architectural enforcement
+
+  # Map logical layers to directory paths (relative to project root).
+  layers:
+    presentation: "src/app"        # UI / View layer (pages, components)
+    domain: "src/domain"           # Business logic (entities, use-cases)
+    data: "src/data"               # Data access (repositories, data sources)
+    core: "src/lib"                # Shared utilities (helpers, constants)
+  # Not all layers are required. Omit any that don't apply.
+
+  # Additional source directories — useful for monorepos or backend functions.
+  additional_sources: []
+  # Example:
+  #   - path: "functions"
+  #     language: "typescript"
+  #     analyze: "cd functions && npm run lint"
+  #   - path: "packages/shared"
+  #     language: "typescript"
+  #     analyze: "cd packages/shared && npx tsc --noEmit"
+
+# ---------------------------------------------------------------------------
+# Generated Files
+# ---------------------------------------------------------------------------
+# Glob patterns for auto-generated files.
+# These are excluded from code-review diffs and style enforcement.
+generated_patterns:
+  - ".next/**"
+  # Examples by stack:
+  #   Flutter: ["*.g.dart", "*.freezed.dart", "*.gen.dart"]
+  #   Prisma:  ["prisma/generated/**"]
+  #   Go:      ["*.pb.go"]
+  #   Rust:    ["target/**"]
+
+# ---------------------------------------------------------------------------
+# Convention Files
+# ---------------------------------------------------------------------------
+# Maps source paths to convention/rule documents.
+# Skills read these before implementing or reviewing code in matching paths.
+conventions:
+  # Path-specific rules: each entry maps glob patterns to convention files.
+  mapping:
+    - paths: ["src/app/**"]
+      files: ["docs/conventions/react-patterns.md"]
+    - paths: ["src/**"]
+      files: [".claude/rules/coding-style.md"]
+  # Example (Flutter):
+  #   - paths: ["lib/presentation/**"]
+  #     files: ["docs/conventions/flutter-ui.md", ".claude/rules/color-usage.md"]
+  #   - paths: ["lib/data/repositories/**"]
+  #     files: [".claude/rules/repository-design.md"]
+
+  # Global rules applied to all paths.
+  global:
+    - "docs/conventions/architecture.md"
+
+# ---------------------------------------------------------------------------
+# Review Configuration
+# ---------------------------------------------------------------------------
+# Fine-tunes how /code-review and /full-review evaluate your code.
+review:
+  # Design system enforcement — checks that UI code uses the correct token class.
+  design_system:
+    class_name: ""                 # Design token class name (e.g., "AppColors", "ThemeTokens")
+                                   # Empty string = design system check disabled.
+    file: ""                       # Path to the design token file
+                                   # (e.g., "src/lib/theme/colors.ts")
+
+  # Error handling conventions.
+  error_handling:
+    result_type: ""                # "Result" | "Either" | "" (no result type)
+                                   # If set, reviewers flag raw try/catch in domain layer.
+    exception_class: ""            # Custom exception class (e.g., "AppError", "DomainException")
+
+  # Testing conventions.
+  testing:
+    mock_library: "jest.mock"      # jest.mock | mocktail | mockito | pytest-mock | testify
+    naming_language: "en"          # "ja" | "en" — language for test descriptions
+    naming_pattern: "should do X when Y"
+                                   # Pattern for test names. Examples:
+                                   #   English: "should do X when Y"
+                                   #   Japanese: "〇〇の場合は〇〇であること"
+    tdd_required_for:              # Class suffixes that require TDD (test-first) workflow.
+      - "Service"                  # /implement creates tests before implementation
+      - "Repository"               # for classes matching these suffixes.
+      - "UseCase"
+
+# ---------------------------------------------------------------------------
+# i18n (Internationalization) — optional
+# ---------------------------------------------------------------------------
+i18n:
+  enabled: false                   # Set to true if your app supports multiple languages.
+  files: []                        # Paths to translation files.
+                                   # Examples:
+                                   #   Next.js:  ["src/locales/en.json", "src/locales/ja.json"]
+                                   #   Flutter:  ["lib/l10n/app_ja.arb", "lib/l10n/app_en.arb"]
+                                   #   Python:   ["locale/en/LC_MESSAGES/messages.po"]
+  accessor: ""                     # How translations are accessed in code.
+                                   # Examples:
+                                   #   Next.js (next-intl):  "t('key')"
+                                   #   Flutter:              "L10n.of(context).key"
+                                   #   Python (gettext):     "_('key')"
+
+# ---------------------------------------------------------------------------
+# Task Tracking
+# ---------------------------------------------------------------------------
+# Controls the plan-based task management system.
+# When enabled, /implement reads tasks from the tasks file and
+# /plan-status reports progress from the progress file.
+tasks:
+  enabled: true                    # Set to false to disable task tracking entirely.
+  file: "docs/plan/tasks.json"    # Task definitions with dependencies and status.
+  progress_file: "docs/plan/progress.json"
+                                   # Aggregated progress metrics.
+  architecture_doc: "docs/plan/architecture.md"
+                                   # Architecture overview referenced by /architecture-check.
+  master_plan: "docs/plan/master_plan.md"
+                                   # High-level development strategy document.
+  id_prefix: "TASK"                # Prefix for task IDs (e.g., TASK-001, ARC-015, BUG-042).
+
+# ---------------------------------------------------------------------------
+# Modules (opt-in skills)
+# ---------------------------------------------------------------------------
+# Enable or disable individual skills.
+# Disabled skills won't appear in Claude Code's skill list.
+modules:
+  implement: true                  # /implement — Single-task TDD implementation
+  implement_team: true             # /implement-team — Multi-task parallel implementation
+  code_review: true                # /code-review — 3-independent-reviewer audit
+  review_fix: true                 # /review-fix — Auto-loop: review -> fix -> re-review
+  full_review: true                # /full-review — 5-phase pre-ship comprehensive review
+  plan_status: true                # /plan-status — Progress reporter and plan analyzer
+  architecture_check: true         # /architecture-check — Compliance scan against target
+  design_skills: true              # Design enhancement skills (colorize, animate, etc.)
+
+# ---------------------------------------------------------------------------
+# Agent Model Configuration
+# ---------------------------------------------------------------------------
+# Controls which model is used for sub-agent delegation.
+# Lighter models reduce cost for routine tasks.
+models:
+  reviewer: "sonnet"               # Model for review agents (code-review, full-review)
+  analyzer: "sonnet"               # Model for architecture analyzer
+  planner: "haiku"                 # Model for plan-reader (lightweight status checks)
+
+# ---------------------------------------------------------------------------
+# Git
+# ---------------------------------------------------------------------------
+git:
+  main_branch: "main"              # Default PR target branch.
+                                   # Examples: "main", "master", "develop"

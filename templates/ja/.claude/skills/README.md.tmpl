@@ -1,0 +1,61 @@
+# スキル一覧と使い分けガイド
+
+## クイックリファレンス
+
+```
+実装したい     → /implement {{TASK_PREFIX}}-015
+レビューしたい → /full-review
+全部直したい   → /review-fix
+```
+
+---
+
+## 開発フロー別コマンド
+
+### 1. 実装フェーズ
+
+| コマンド | 用途 |
+|---------|------|
+| `/implement {{TASK_PREFIX}}-015` | 単一タスクを TDD で実装 |
+| `/implement-team {{TASK_PREFIX}}-015 {{TASK_PREFIX}}-016` | 複数タスクを並列実装 |
+
+### 2. レビューフェーズ
+
+| コマンド | 用途 |
+|---------|------|
+| `/full-review` | 全フェーズ包括レビュー |
+| `/full-review code` | コードレビューのみ |
+| `/full-review ui` | UI品質監査のみ |
+| `/full-review final` | 出荷前最終チェックのみ |
+
+### 3. 自動修正フェーズ
+
+| コマンド | 用途 |
+|---------|------|
+| `/review-fix` | 指摘ゼロまで自動ループ（MUST + SHOULD） |
+| `/review-fix must` | MUST のみ最速で修正 |
+| `/review-fix all` | NICE まで全部修正 |
+
+---
+
+## よくある使い方
+
+### 機能実装後にレビュー＆修正を一気に
+```
+/review-fix
+```
+
+### まずレビュー結果を確認してから
+```
+/full-review
+```
+
+### PR前にコードだけサッとチェック
+```
+/full-review code
+```
+
+### MUST だけ最速で片付けたい
+```
+/review-fix must
+```

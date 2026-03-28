@@ -1,0 +1,103 @@
+# ai-dev-harness configuration — Python FastAPI example
+# ===========================================================================
+# Configuration for a Python FastAPI backend service.
+# SQLAlchemy + Alembic + Pydantic v2 + pytest.
+# ===========================================================================
+
+version: "1.0"
+
+project:
+  name: "api-service"
+  language: "en"
+
+stack:
+  primary_language: "python"
+  framework: "fastapi"
+
+commands:
+  analyze: "ruff check . && mypy ."
+  test: "pytest -v --tb=short"
+  build_generated: ""
+  format: "ruff format ."
+
+architecture:
+  style: "clean"
+  layers:
+    presentation: "src/api"
+    domain: "src/domain"
+    data: "src/infrastructure"
+    core: "src/core"
+  additional_sources: []
+
+generated_patterns:
+  - "src/infrastructure/db/migrations/versions/**"
+  - "__pycache__/**"
+  - "*.pyc"
+
+conventions:
+  mapping:
+    - paths: ["src/api/**"]
+      files:
+        - ".claude/rules/api-design.md"
+        - ".claude/rules/response-format.md"
+    - paths: ["src/infrastructure/**"]
+      files:
+        - ".claude/rules/repository-design.md"
+        - ".claude/rules/sqlalchemy-patterns.md"
+    - paths: ["src/domain/**"]
+      files:
+        - ".claude/rules/domain-logic.md"
+    - paths: ["src/**", "tests/**"]
+      files:
+        - ".claude/rules/coding-style.md"
+        - ".claude/rules/testing.md"
+  global:
+    - "docs/conventions/architecture-overview.md"
+    - "docs/conventions/python-style-guide.md"
+
+review:
+  design_system:
+    class_name: ""
+    file: ""
+  error_handling:
+    result_type: "Result"
+    exception_class: "AppError"
+  testing:
+    mock_library: "pytest-mock"
+    naming_language: "en"
+    naming_pattern: "test_should_do_X_when_Y"
+    tdd_required_for:
+      - "Service"
+      - "Repository"
+      - "UseCase"
+
+i18n:
+  enabled: false
+  files: []
+  accessor: ""
+
+tasks:
+  enabled: true
+  file: "docs/plan/tasks.json"
+  progress_file: "docs/plan/progress.json"
+  architecture_doc: "docs/plan/architecture.md"
+  master_plan: "docs/plan/master_plan.md"
+  id_prefix: "TASK"
+
+modules:
+  implement: true
+  implement_team: true
+  code_review: true
+  review_fix: true
+  full_review: true
+  plan_status: true
+  architecture_check: true
+  design_skills: false
+
+models:
+  reviewer: "sonnet"
+  analyzer: "sonnet"
+  planner: "haiku"
+
+git:
+  main_branch: "main"

@@ -1,0 +1,106 @@
+# ai-dev-harness configuration — Next.js SaaS example
+# ===========================================================================
+# Configuration for a typical Next.js SaaS application.
+# App Router + Prisma + NextAuth + Stripe + Tailwind CSS.
+# ===========================================================================
+
+version: "1.0"
+
+project:
+  name: "saas-dashboard"
+  language: "en"
+
+stack:
+  primary_language: "typescript"
+  framework: "nextjs"
+
+commands:
+  analyze: "npx eslint . && npx tsc --noEmit"
+  test: "npx jest --passWithNoTests"
+  build_generated: "npx prisma generate"
+  format: "npx prettier --write ."
+
+architecture:
+  style: "layered"
+  layers:
+    presentation: "src/app"
+    domain: "src/domain"
+    data: "src/data"
+    core: "src/lib"
+  additional_sources: []
+
+generated_patterns:
+  - ".next/**"
+  - "prisma/generated/**"
+  - "src/generated/**"
+
+conventions:
+  mapping:
+    - paths: ["src/app/**"]
+      files:
+        - "docs/conventions/react-patterns.md"
+        - ".claude/rules/component-style.md"
+    - paths: ["src/app/api/**"]
+      files:
+        - ".claude/rules/api-routes.md"
+    - paths: ["src/data/**"]
+      files:
+        - ".claude/rules/repository-design.md"
+    - paths: ["src/domain/**"]
+      files:
+        - ".claude/rules/domain-logic.md"
+    - paths: ["src/**", "test/**"]
+      files:
+        - ".claude/rules/coding-style.md"
+        - ".claude/rules/testing.md"
+  global:
+    - "docs/conventions/architecture-overview.md"
+
+review:
+  design_system:
+    class_name: "AppColors"
+    file: "src/lib/theme/colors.ts"
+  error_handling:
+    result_type: ""
+    exception_class: "AppError"
+  testing:
+    mock_library: "jest.mock"
+    naming_language: "en"
+    naming_pattern: "should do X when Y"
+    tdd_required_for:
+      - "Service"
+      - "Repository"
+      - "UseCase"
+
+i18n:
+  enabled: true
+  files:
+    - "src/locales/en.json"
+    - "src/locales/ja.json"
+  accessor: "t('key')"
+
+tasks:
+  enabled: true
+  file: "docs/plan/tasks.json"
+  progress_file: "docs/plan/progress.json"
+  architecture_doc: "docs/plan/architecture.md"
+  master_plan: "docs/plan/master_plan.md"
+  id_prefix: "TASK"
+
+modules:
+  implement: true
+  implement_team: true
+  code_review: true
+  review_fix: true
+  full_review: true
+  plan_status: true
+  architecture_check: true
+  design_skills: true
+
+models:
+  reviewer: "sonnet"
+  analyzer: "sonnet"
+  planner: "haiku"
+
+git:
+  main_branch: "main"

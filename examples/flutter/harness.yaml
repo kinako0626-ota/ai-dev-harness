@@ -1,0 +1,106 @@
+# ai-dev-harness configuration — Flutter example (usagiDiary)
+# ===========================================================================
+# Real-world configuration from a production Flutter app.
+# Pet health diary app with Firebase backend and Cloud Functions.
+# ===========================================================================
+
+version: "1.0"
+
+project:
+  name: "usagi-diary"
+  language: "ja"
+
+stack:
+  primary_language: "dart"
+  framework: "flutter"
+
+commands:
+  analyze: "fvm flutter analyze"
+  test: "fvm flutter test"
+  build_generated: "fvm flutter pub run build_runner build --delete-conflicting-outputs"
+  format: "dart format ."
+
+architecture:
+  style: "clean"
+  layers:
+    presentation: "lib/presentation"
+    domain: "lib/domain"
+    data: "lib/data"
+    core: "lib/core"
+  additional_sources:
+    - path: "functions"
+      language: "typescript"
+      analyze: "cd functions && npm run lint"
+
+generated_patterns:
+  - "*.g.dart"
+  - "*.freezed.dart"
+  - "*.gen.dart"
+
+conventions:
+  mapping:
+    - paths: ["lib/presentation/**"]
+      files: ["docs/conventions/flutter-ui.md", ".claude/rules/color-usage.md"]
+    - paths: ["lib/data/repositories/**"]
+      files: ["docs/conventions/architecture-data.md", ".claude/rules/repository-design.md"]
+    - paths: ["lib/data/services/**"]
+      files: ["docs/conventions/architecture-data.md", ".claude/rules/service-design.md"]
+    - paths: ["lib/**", "test/**"]
+      files: [".claude/rules/coding-style.md", ".claude/rules/testing.md"]
+    - paths: ["functions/**"]
+      files: [".claude/rules/cloud-functions.md"]
+  global:
+    - "docs/conventions/architecture-overview.md"
+    - "docs/conventions/dart-coding-style.md"
+
+review:
+  design_system:
+    class_name: "UsagiDiaryColor"
+    file: "lib/core/theme/color.dart"
+  error_handling:
+    result_type: "Result"
+    exception_class: "AppException"
+  testing:
+    mock_library: "mocktail"
+    naming_language: "ja"
+    naming_pattern: "〇〇の場合は〇〇であること"
+    tdd_required_for:
+      - "Service"
+      - "Repository"
+      - "Notifier"
+      - "UseCase"
+
+i18n:
+  enabled: true
+  files:
+    - "lib/l10n/app_ja.arb"
+    - "lib/l10n/app_en.arb"
+    - "lib/l10n/app_de.arb"
+    - "lib/l10n/app_ko.arb"
+  accessor: "L10n.of(context)"
+
+tasks:
+  enabled: true
+  file: "docs/plan/tasks.json"
+  progress_file: "docs/plan/progress.json"
+  architecture_doc: "docs/plan/architecture.md"
+  master_plan: "docs/plan/master_plan.md"
+  id_prefix: "ARC"
+
+modules:
+  implement: true
+  implement_team: true
+  code_review: true
+  review_fix: true
+  full_review: true
+  plan_status: true
+  architecture_check: true
+  design_skills: true
+
+models:
+  reviewer: "sonnet"
+  analyzer: "sonnet"
+  planner: "haiku"
+
+git:
+  main_branch: "develop"
