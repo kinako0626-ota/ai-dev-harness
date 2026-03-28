@@ -6,8 +6,6 @@ set -euo pipefail
 #
 # Uses the same yaml_get() parser as init.sh to ensure consistent validation.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HARNESS_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG="${1:-harness.yaml}"
 ERRORS=0
 WARNINGS=0
@@ -29,41 +27,10 @@ fi
 echo "Validating: $CONFIG"
 echo ""
 
-# --- Reuse yaml_get from init.sh ---
+# --- Source shared YAML parser ---
 CONFIG_FILE="$CONFIG"
-
-yaml_get() {
-  local key="$1"
-  local file="${2:-$CONFIG_FILE}"
-  IFS='.' read -ra parts <<< "$key"
-
-  if [[ ${#parts[@]} -eq 1 ]]; then
-    grep -E "^${parts[0]}:" "$file" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/^["'"'"']//; s/["'"'"']$//'
-  elif [[ ${#parts[@]} -eq 2 ]]; then
-    awk -v section="${parts[0]}" -v key="${parts[1]}" '
-      /^[a-zA-Z]/ { current_section = $0; gsub(/:.*/, "", current_section) }
-      current_section == section && $0 ~ "^  " key ":" {
-        val = $0
-        sub(/^[^:]*: */, "", val)
-        gsub(/^["'"'"']|["'"'"']$/, "", val)
-        print val
-        exit
-      }
-    ' "$file"
-  elif [[ ${#parts[@]} -eq 3 ]]; then
-    awk -v s1="${parts[0]}" -v s2="${parts[1]}" -v key="${parts[2]}" '
-      /^[a-zA-Z]/ { l1 = $0; gsub(/:.*/, "", l1); l2 = "" }
-      /^  [a-zA-Z]/ && l1 == s1 { l2 = $0; gsub(/^ */, "", l2); gsub(/:.*/, "", l2) }
-      l1 == s1 && l2 == s2 && $0 ~ "^    " key ":" {
-        val = $0
-        sub(/^[^:]*: */, "", val)
-        gsub(/^["'"'"']|["'"'"']$/, "", val)
-        print val
-        exit
-      }
-    ' "$file"
-  fi
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/yaml-parser.sh"
 
 # --- Required fields (same as init.sh validate_config) ---
 required_fields=(

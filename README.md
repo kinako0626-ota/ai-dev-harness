@@ -142,7 +142,7 @@ flowchart TD
     A --> DONE[全タスク完了]
     B --> DONE
     C --> DONE
-    DONE --> CR[/code-review]
+    DONE --> CR["/code-review"]
 ```
 
 ### コミット時の自動ゲート
