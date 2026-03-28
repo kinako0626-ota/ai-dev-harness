@@ -18,7 +18,7 @@ Anthropic のブログ記事 ["Claude Code: Best practices for agentic coding"](
 
 ai-dev-harness は、これらのパターンを **設定ファイル 1 つ** (`harness.yaml`) から自動生成します。Flutter、Next.js、Python FastAPI など、どのスタックでもプロジェクト規約に沿った AI 開発環境を数分で構築できます。
 
-> このハーネスは [usagiDiary](https://github.com/ootaryuunosuke/usagiDiary)（Flutter うさぎ健康管理アプリ）の実開発で培われたプラクティスを汎用化したものです。
+> このハーネスは実際の Flutter プロジェクトの開発で培われたプラクティスを汎用化したものです。
 
 ---
 
@@ -230,7 +230,7 @@ conventions:
 ```yaml
 review:
   design_system:
-    class_name: "UsagiDiaryColor"   # デザイントークンクラス（空文字でチェック無効）
+    class_name: "AppColors"         # デザイントークンクラス（空文字でチェック無効）
     file: "lib/core/theme/color.dart"
   error_handling:
     result_type: "Result"           # Result | Either | 空（チェック無効）
@@ -345,9 +345,9 @@ harness.yaml (設定)
 
 ## 設定例
 
-### Flutter (usagiDiary)
+### Flutter
 
-Firebase バックエンド + Cloud Functions を持つペット健康管理アプリ:
+Firebase バックエンド + Clean Architecture の Flutter アプリ:
 
 ```yaml
 stack:
@@ -367,7 +367,7 @@ architecture:
 
 review:
   design_system:
-    class_name: "UsagiDiaryColor"
+    class_name: "AppColors"
   testing:
     mock_library: "mocktail"
     naming_language: "ja"
@@ -526,7 +526,7 @@ cd your-project
 ## Credits
 
 - **設計思想**: Anthropic ["Claude Code: Best practices for agentic coding"](https://www.anthropic.com/engineering/claude-code-best-practices)
-- **実証プロジェクト**: [usagiDiary](https://github.com/ootaryuunosuke/usagiDiary) -- Flutter うさぎ健康管理アプリの開発で培われたプラクティスを汎用化
+- **実証**: Flutter プロジェクトの実開発で培われたプラクティスを汎用化
 - **動作環境**: [Claude Code](https://claude.ai/claude-code) (Anthropic)
 
 ---

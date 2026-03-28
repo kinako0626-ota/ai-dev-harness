@@ -210,7 +210,7 @@ Reviewers are given the project's convention files as a concrete checklist, not 
 
 ```
 Convention: .claude/rules/color-usage.md
-Rule: "UsagiDiaryColor クラスの定数を使用すること"
+Rule: "AppColors クラスの定数を使用すること"
 Check: Does this diff contain Color(0x...) or Color.fromRGBO()?
 Result: PASS / FAIL
 ```

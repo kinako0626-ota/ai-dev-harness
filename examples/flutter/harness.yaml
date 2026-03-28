@@ -1,13 +1,13 @@
-# ai-dev-harness configuration — Flutter example (usagiDiary)
+# ai-dev-harness configuration — Flutter example
 # ===========================================================================
-# Real-world configuration from a production Flutter app.
-# Pet health diary app with Firebase backend and Cloud Functions.
+# Example configuration for a Flutter app with Firebase backend
+# and Cloud Functions using Clean Architecture.
 # ===========================================================================
 
 version: "1.0"
 
 project:
-  name: "usagi-diary"
+  name: "my-flutter-app"
   language: "ja"
 
 stack:
@@ -55,7 +55,7 @@ conventions:
 
 review:
   design_system:
-    class_name: "UsagiDiaryColor"
+    class_name: "AppColors"
     file: "lib/core/theme/color.dart"
   error_handling:
     result_type: "Result"

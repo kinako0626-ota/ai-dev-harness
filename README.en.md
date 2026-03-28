@@ -18,7 +18,7 @@ A **harness** is the collective term for the scaffolding that surrounds an AI ag
 
 ai-dev-harness generates all of these patterns from **a single configuration file** (`harness.yaml`). Whether you use Flutter, Next.js, Python FastAPI, or any other stack, you can set up an AI development environment aligned with your project conventions in minutes.
 
-> This harness was extracted and generalized from real-world practices developed during the production of [usagiDiary](https://github.com/ootaryuunosuke/usagiDiary) (a Flutter pet health diary app).
+> This harness was extracted and generalized from real-world practices developed during a production Flutter project.
 
 ---
 
@@ -345,9 +345,9 @@ For details, see [docs/harness-design.md](docs/harness-design.md).
 
 ## Examples
 
-### Flutter (usagiDiary)
+### Flutter
 
-Pet health diary app with Firebase backend and Cloud Functions:
+Clean Architecture Flutter app with Firebase backend and Cloud Functions:
 
 ```yaml
 stack:
@@ -367,7 +367,7 @@ architecture:
 
 review:
   design_system:
-    class_name: "UsagiDiaryColor"
+    class_name: "AppColors"
   testing:
     mock_library: "mocktail"
     naming_language: "ja"
@@ -526,7 +526,7 @@ For details, see [docs/updating.md](docs/updating.md).
 ## Credits
 
 - **Design Philosophy**: Anthropic ["Claude Code: Best practices for agentic coding"](https://www.anthropic.com/engineering/claude-code-best-practices)
-- **Origin Project**: [usagiDiary](https://github.com/ootaryuunosuke/usagiDiary) -- Practices developed during production of a Flutter pet health diary app, generalized for any stack
+- **Origin**: Practices developed during a production Flutter project, generalized for any stack
 - **Runtime**: [Claude Code](https://claude.ai/claude-code) (Anthropic)
 
 ---
