@@ -38,8 +38,8 @@ fi
 current_version=$(grep "^version:" .harness-version | sed 's/.*: *//')
 info "Current harness version: $current_version"
 
-# Re-run init with --force flag but show diffs
+# Re-run init without --force so modified files show a diff for manual resolution
 info "Re-generating from latest templates..."
-"$HARNESS_REPO/init.sh" --force
+"$HARNESS_REPO/init.sh"
 
 ok "Update complete. Review changes with: git diff"

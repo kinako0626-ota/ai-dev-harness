@@ -8,6 +8,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# User local config (generated from harness.yaml.example)
+harness.yaml
+.harness-version
+
 # Test output
 /test-output/
 /tmp/

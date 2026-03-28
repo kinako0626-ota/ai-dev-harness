@@ -60,7 +60,7 @@ yaml_get() {
   IFS='.' read -ra parts <<< "$key"
 
   if [[ ${#parts[@]} -eq 1 ]]; then
-    grep -E "^${parts[0]}:" "$file" 2>/dev/null | head -1 | sed 's/^[^:]*: *//' | sed 's/^"//' | sed 's/"$//' | sed "s/^'//" | sed "s/'$//"
+    grep -E "^${parts[0]}:" "$file" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/^["'"'"']//; s/["'"'"']$//'
   elif [[ ${#parts[@]} -eq 2 ]]; then
     # Find the section, then the key within it
     awk -v section="${parts[0]}" -v key="${parts[1]}" '
@@ -204,7 +204,7 @@ validate_config() {
 
 # Build sed substitution commands from config
 build_substitutions() {
-  local project_name project_lang analyze_cmd test_cmd build_gen_cmd format_cmd
+  local project_name analyze_cmd test_cmd build_gen_cmd format_cmd
   local arch_style presentation_layer domain_layer data_layer core_layer
   local source_dir test_dir main_branch task_prefix
   local design_class design_file result_type exception_class
@@ -213,8 +213,7 @@ build_substitutions() {
   local tasks_file progress_file arch_doc master_plan reviews_dir
 
   project_name=$(yaml_get "project.name")
-  project_lang="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
-  project_lang="${project_lang:-en}"
+  # PROJECT_LANG is set in main() as a global variable
 
   analyze_cmd=$(yaml_get "commands.analyze")
   test_cmd=$(yaml_get "commands.test")
@@ -280,7 +279,11 @@ build_substitutions() {
       gen_patterns_text="\`$pattern\`"
     fi
   done < <(yaml_array "generated_patterns")
-  gen_patterns_text="${gen_patterns_text:-（なし）}"
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
+    gen_patterns_text="${gen_patterns_text:-（なし）}"
+  else
+    gen_patterns_text="${gen_patterns_text:-(none)}"
+  fi
 
   # Build TDD required for text
   local tdd_targets=""
@@ -296,15 +299,18 @@ build_substitutions() {
 
   # Output language
   local output_lang
-  if [[ "$project_lang" == "ja" ]]; then
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
     output_lang="日本語"
   else
     output_lang="English"
   fi
 
-  # UI paths and code paths
+  # UI paths and code paths (backtick-separated for markdown output)
   local ui_paths="${presentation_layer}/**"
-  local code_paths="${data_layer}/**\`, \`${domain_layer}/**\`, \`${test_dir}/**"
+  local code_paths
+  code_paths="${data_layer}/**\`"
+  code_paths+=", \`${domain_layer}/**\`"
+  code_paths+=", \`${test_dir}/**"
 
   # Task ID pattern for detection
   local task_id_pattern="${task_prefix}-[0-9]+"
@@ -319,7 +325,7 @@ build_substitutions() {
 
   cat > "$sed_file" << SEDEOF
 s|{{PROJECT_NAME}}|${project_name}|g
-s|{{PROJECT_LANG}}|${project_lang}|g
+s|{{PROJECT_LANG}}|${PROJECT_LANG}|g
 s|{{OUTPUT_LANGUAGE}}|${output_lang}|g
 s|{{ANALYZE_CMD}}|${analyze_cmd}|g
 s|{{TEST_CMD}}|${test_cmd}|g
@@ -426,7 +432,11 @@ process_conditionals() {
 # Generate convention mapping table from harness.yaml
 generate_convention_mapping() {
   local output=""
-  output+="| 変更対象パス | 参照する規約 |\n"
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
+    output+="| 変更対象パス | 参照する規約 |\n"
+  else
+    output+="| Changed Path | Convention Reference |\n"
+  fi
   output+="|---|---|\n"
 
   while IFS='|' read -r paths files; do
@@ -450,7 +460,11 @@ generate_convention_mapping() {
         global_display="$g"
       fi
     done <<< "$globals"
-    output+="| 共通（常に読む） | \`$global_display\` |\n"
+    if [[ "$PROJECT_LANG" == "ja" ]]; then
+      output+="| 共通（常に読む） | \`$global_display\` |\n"
+    else
+      output+="| Global (always read) | \`$global_display\` |\n"
+    fi
   fi
 
   echo -e "$output"
@@ -544,9 +558,10 @@ main() {
 
   validate_config
 
-  # Determine language
-  local lang="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
-  lang="${lang:-en}"
+  # Determine language (PROJECT_LANG is global so other functions can access it)
+  PROJECT_LANG="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
+  PROJECT_LANG="${PROJECT_LANG:-en}"
+  local lang="$PROJECT_LANG"
   local template_dir="${SCRIPT_DIR}/templates/${lang}"
 
   if [[ ! -d "$template_dir" ]]; then
@@ -581,10 +596,13 @@ main() {
   # ---- Skills ----
   info "=== Skills ==="
 
+  # Shared reference templates (used by implement and full-review)
+  local shared_dir="$template_dir/.claude/skills/_shared"
+
   if yaml_bool "modules.implement" 2>/dev/null; then
     process_template "$template_dir/.claude/skills/implement/SKILL.md.tmpl" ".claude/skills/implement/SKILL.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/implement/references/convention-mapping.md.tmpl" ".claude/skills/implement/references/convention-mapping.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/implement/references/review-report.md.tmpl" ".claude/skills/implement/references/review-report.md" "$sed_file"
+    process_template "$shared_dir/references/convention-mapping.md.tmpl" ".claude/skills/implement/references/convention-mapping.md" "$sed_file"
+    process_template "$shared_dir/references/review-report.md.tmpl" ".claude/skills/implement/references/review-report.md" "$sed_file"
     ((generated_count+=3))
   fi
 
@@ -607,9 +625,9 @@ main() {
     process_template "$template_dir/.claude/skills/full-review/SKILL.md.tmpl" ".claude/skills/full-review/SKILL.md" "$sed_file"
     process_template "$template_dir/.claude/skills/full-review/references/agent-prompts.md.tmpl" ".claude/skills/full-review/references/agent-prompts.md" "$sed_file"
     process_template "$template_dir/.claude/skills/full-review/references/fix-mapping.md.tmpl" ".claude/skills/full-review/references/fix-mapping.md" "$sed_file"
-    # Copy shared references
-    process_template "$template_dir/.claude/skills/full-review/references/convention-mapping.md.tmpl" ".claude/skills/full-review/references/convention-mapping.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/full-review/references/review-report.md.tmpl" ".claude/skills/full-review/references/review-report.md" "$sed_file"
+    # Shared references (single source of truth in _shared/)
+    process_template "$shared_dir/references/convention-mapping.md.tmpl" ".claude/skills/full-review/references/convention-mapping.md" "$sed_file"
+    process_template "$shared_dir/references/review-report.md.tmpl" ".claude/skills/full-review/references/review-report.md" "$sed_file"
     ((generated_count+=5))
   fi
 
