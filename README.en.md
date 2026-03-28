@@ -27,7 +27,7 @@ ai-dev-harness generates all of these patterns from **a single configuration fil
 ### 1. Clone
 
 ```bash
-git clone https://github.com/ootaryuunosuke/ai-dev-harness.git ~/ai-dev-harness
+git clone https://github.com/kinako0626-ota/ai-dev-harness.git ~/ai-dev-harness
 ```
 
 ### 2. Create config file

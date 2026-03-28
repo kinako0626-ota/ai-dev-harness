@@ -48,116 +48,9 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # ============================================================
-# YAML parser (minimal, bash-only)
+# YAML parser (shared with scripts/validate-config.sh)
 # ============================================================
-
-# Read a flat YAML value: yaml_get "project.name"
-yaml_get() {
-  local key="$1"
-  local file="${2:-$CONFIG_FILE}"
-
-  # Split key by dots
-  IFS='.' read -ra parts <<< "$key"
-
-  if [[ ${#parts[@]} -eq 1 ]]; then
-    grep -E "^${parts[0]}:" "$file" 2>/dev/null | head -1 | sed 's/^[^:]*: *//' | sed 's/^"//' | sed 's/"$//' | sed "s/^'//" | sed "s/'$//"
-  elif [[ ${#parts[@]} -eq 2 ]]; then
-    # Find the section, then the key within it
-    awk -v section="${parts[0]}" -v key="${parts[1]}" '
-      /^[a-zA-Z]/ { current_section = $0; gsub(/:.*/, "", current_section) }
-      current_section == section && $0 ~ "^  " key ":" {
-        val = $0
-        sub(/^[^:]*: */, "", val)
-        gsub(/^["'"'"']|["'"'"']$/, "", val)
-        print val
-        exit
-      }
-    ' "$file"
-  elif [[ ${#parts[@]} -eq 3 ]]; then
-    awk -v s1="${parts[0]}" -v s2="${parts[1]}" -v key="${parts[2]}" '
-      /^[a-zA-Z]/ { l1 = $0; gsub(/:.*/, "", l1); l2 = "" }
-      /^  [a-zA-Z]/ && l1 == s1 { l2 = $0; gsub(/^ */, "", l2); gsub(/:.*/, "", l2) }
-      l1 == s1 && l2 == s2 && $0 ~ "^    " key ":" {
-        val = $0
-        sub(/^[^:]*: */, "", val)
-        gsub(/^["'"'"']|["'"'"']$/, "", val)
-        print val
-        exit
-      }
-    ' "$file"
-  fi
-}
-
-# Read a YAML array: yaml_array "generated_patterns"
-yaml_array() {
-  local key="$1"
-  local file="${2:-$CONFIG_FILE}"
-
-  awk -v key="$key" '
-    BEGIN { found = 0; indent = 0 }
-    $0 ~ "^" key ":" || $0 ~ "^  " key ":" {
-      found = 1
-      # Get indent level of the key
-      match($0, /^[ ]*/)
-      indent = RLENGTH + 2
-      next
-    }
-    found && /^[ ]*- / {
-      match($0, /^[ ]*/)
-      if (RLENGTH >= indent) {
-        val = $0
-        sub(/^[ ]*- */, "", val)
-        gsub(/^["'"'"']|["'"'"']$/, "", val)
-        print val
-      } else {
-        exit
-      }
-    }
-    found && /^[a-zA-Z]/ { exit }
-    found && /^  [a-zA-Z]/ && !/^[ ]*- / {
-      match($0, /^[ ]*/)
-      if (RLENGTH < indent) exit
-    }
-  ' "$file"
-}
-
-# Read nested YAML array of objects (conventions.mapping)
-yaml_convention_mapping() {
-  local file="${1:-$CONFIG_FILE}"
-  awk '
-    BEGIN { in_mapping = 0; in_item = 0; paths = ""; files = "" }
-    /^  mapping:/ { in_mapping = 1; next }
-    in_mapping && /^  [a-zA-Z]/ { in_mapping = 0 }
-    in_mapping && /^    - paths:/ {
-      if (paths != "" && files != "") {
-        print paths "|" files
-      }
-      in_item = 1; paths = ""; files = ""; next
-    }
-    in_mapping && in_item && /^      files:/ { in_item = 2; next }
-    in_mapping && in_item == 1 && /^        - / {
-      val = $0; sub(/^[ ]*- */, "", val); gsub(/["'"'"']/, "", val)
-      if (paths != "") paths = paths ","
-      paths = paths val
-    }
-    in_mapping && in_item == 2 && /^        - / {
-      val = $0; sub(/^[ ]*- */, "", val); gsub(/["'"'"']/, "", val)
-      if (files != "") files = files ","
-      files = files val
-    }
-    in_mapping && in_item && /^    [a-zA-Z]/ && !/^      / { in_item = 0 }
-    END {
-      if (paths != "" && files != "") print paths "|" files
-    }
-  ' "$file"
-}
-
-# Check if a YAML boolean value is true
-yaml_bool() {
-  local val
-  val=$(yaml_get "$1")
-  [[ "$val" == "true" || "$val" == "yes" || "$val" == "1" ]]
-}
+source "${SCRIPT_DIR}/scripts/yaml-parser.sh"
 
 # ============================================================
 # Validation
@@ -204,7 +97,7 @@ validate_config() {
 
 # Build sed substitution commands from config
 build_substitutions() {
-  local project_name project_lang analyze_cmd test_cmd build_gen_cmd format_cmd
+  local project_name analyze_cmd test_cmd build_gen_cmd format_cmd
   local arch_style presentation_layer domain_layer data_layer core_layer
   local source_dir test_dir main_branch task_prefix
   local design_class design_file result_type exception_class
@@ -213,8 +106,7 @@ build_substitutions() {
   local tasks_file progress_file arch_doc master_plan reviews_dir
 
   project_name=$(yaml_get "project.name")
-  project_lang="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
-  project_lang="${project_lang:-en}"
+  # PROJECT_LANG is set in main() as a global variable
 
   analyze_cmd=$(yaml_get "commands.analyze")
   test_cmd=$(yaml_get "commands.test")
@@ -280,7 +172,11 @@ build_substitutions() {
       gen_patterns_text="\`$pattern\`"
     fi
   done < <(yaml_array "generated_patterns")
-  gen_patterns_text="${gen_patterns_text:-（なし）}"
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
+    gen_patterns_text="${gen_patterns_text:-（なし）}"
+  else
+    gen_patterns_text="${gen_patterns_text:-(none)}"
+  fi
 
   # Build TDD required for text
   local tdd_targets=""
@@ -296,15 +192,18 @@ build_substitutions() {
 
   # Output language
   local output_lang
-  if [[ "$project_lang" == "ja" ]]; then
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
     output_lang="日本語"
   else
     output_lang="English"
   fi
 
-  # UI paths and code paths
+  # UI paths and code paths (backtick-separated for markdown output)
   local ui_paths="${presentation_layer}/**"
-  local code_paths="${data_layer}/**\`, \`${domain_layer}/**\`, \`${test_dir}/**"
+  local code_paths
+  code_paths="${data_layer}/**\`"
+  code_paths+=", \`${domain_layer}/**\`"
+  code_paths+=", \`${test_dir}/**"
 
   # Task ID pattern for detection
   local task_id_pattern="${task_prefix}-[0-9]+"
@@ -319,7 +218,7 @@ build_substitutions() {
 
   cat > "$sed_file" << SEDEOF
 s|{{PROJECT_NAME}}|${project_name}|g
-s|{{PROJECT_LANG}}|${project_lang}|g
+s|{{PROJECT_LANG}}|${PROJECT_LANG}|g
 s|{{OUTPUT_LANGUAGE}}|${output_lang}|g
 s|{{ANALYZE_CMD}}|${analyze_cmd}|g
 s|{{TEST_CMD}}|${test_cmd}|g
@@ -426,7 +325,11 @@ process_conditionals() {
 # Generate convention mapping table from harness.yaml
 generate_convention_mapping() {
   local output=""
-  output+="| 変更対象パス | 参照する規約 |\n"
+  if [[ "$PROJECT_LANG" == "ja" ]]; then
+    output+="| 変更対象パス | 参照する規約 |\n"
+  else
+    output+="| Changed Path | Convention Reference |\n"
+  fi
   output+="|---|---|\n"
 
   while IFS='|' read -r paths files; do
@@ -450,7 +353,11 @@ generate_convention_mapping() {
         global_display="$g"
       fi
     done <<< "$globals"
-    output+="| 共通（常に読む） | \`$global_display\` |\n"
+    if [[ "$PROJECT_LANG" == "ja" ]]; then
+      output+="| 共通（常に読む） | \`$global_display\` |\n"
+    else
+      output+="| Global (always read) | \`$global_display\` |\n"
+    fi
   fi
 
   echo -e "$output"
@@ -544,14 +451,16 @@ main() {
 
   validate_config
 
-  # Determine language
-  local lang="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
-  lang="${lang:-en}"
+  # Determine language (PROJECT_LANG is global so other functions can access it)
+  PROJECT_LANG="${LANG_OVERRIDE:-$(yaml_get "project.language")}"
+  PROJECT_LANG="${PROJECT_LANG:-en}"
+  local lang="$PROJECT_LANG"
   local template_dir="${SCRIPT_DIR}/templates/${lang}"
 
   if [[ ! -d "$template_dir" ]]; then
     warn "Template directory not found for language '$lang', falling back to 'en'"
     lang="en"
+    PROJECT_LANG="en"
     template_dir="${SCRIPT_DIR}/templates/${lang}"
   fi
 
@@ -581,10 +490,13 @@ main() {
   # ---- Skills ----
   info "=== Skills ==="
 
+  # Shared reference templates (used by implement and full-review)
+  local shared_dir="$template_dir/.claude/skills/_shared"
+
   if yaml_bool "modules.implement" 2>/dev/null; then
     process_template "$template_dir/.claude/skills/implement/SKILL.md.tmpl" ".claude/skills/implement/SKILL.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/implement/references/convention-mapping.md.tmpl" ".claude/skills/implement/references/convention-mapping.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/implement/references/review-report.md.tmpl" ".claude/skills/implement/references/review-report.md" "$sed_file"
+    process_template "$shared_dir/references/convention-mapping.md.tmpl" ".claude/skills/implement/references/convention-mapping.md" "$sed_file"
+    process_template "$shared_dir/references/review-report.md.tmpl" ".claude/skills/implement/references/review-report.md" "$sed_file"
     ((generated_count+=3))
   fi
 
@@ -607,9 +519,9 @@ main() {
     process_template "$template_dir/.claude/skills/full-review/SKILL.md.tmpl" ".claude/skills/full-review/SKILL.md" "$sed_file"
     process_template "$template_dir/.claude/skills/full-review/references/agent-prompts.md.tmpl" ".claude/skills/full-review/references/agent-prompts.md" "$sed_file"
     process_template "$template_dir/.claude/skills/full-review/references/fix-mapping.md.tmpl" ".claude/skills/full-review/references/fix-mapping.md" "$sed_file"
-    # Copy shared references
-    process_template "$template_dir/.claude/skills/full-review/references/convention-mapping.md.tmpl" ".claude/skills/full-review/references/convention-mapping.md" "$sed_file"
-    process_template "$template_dir/.claude/skills/full-review/references/review-report.md.tmpl" ".claude/skills/full-review/references/review-report.md" "$sed_file"
+    # Shared references (single source of truth in _shared/)
+    process_template "$shared_dir/references/convention-mapping.md.tmpl" ".claude/skills/full-review/references/convention-mapping.md" "$sed_file"
+    process_template "$shared_dir/references/review-report.md.tmpl" ".claude/skills/full-review/references/review-report.md" "$sed_file"
     ((generated_count+=5))
   fi
 

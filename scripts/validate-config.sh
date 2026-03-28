@@ -3,6 +3,8 @@ set -euo pipefail
 
 # Validate harness.yaml configuration
 # Usage: ./scripts/validate-config.sh [path/to/harness.yaml]
+#
+# Uses the same yaml_get() parser as init.sh to ensure consistent validation.
 
 CONFIG="${1:-harness.yaml}"
 ERRORS=0
@@ -25,35 +27,48 @@ fi
 echo "Validating: $CONFIG"
 echo ""
 
-# Required fields
-for field in "project:" "  name:" "stack:" "  primary_language:" "commands:" "  analyze:" "  test:"; do
-  if ! grep -q "^${field}" "$CONFIG" 2>/dev/null && ! grep -q "^  ${field}" "$CONFIG" 2>/dev/null; then
+# --- Source shared YAML parser ---
+CONFIG_FILE="$CONFIG"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/yaml-parser.sh"
+
+# --- Required fields (same as init.sh validate_config) ---
+required_fields=(
+  "project.name"
+  "stack.primary_language"
+  "commands.analyze"
+  "commands.test"
+)
+
+for field in "${required_fields[@]}"; do
+  val=$(yaml_get "$field")
+  if [[ -z "$val" ]]; then
     err "Missing required field: $field"
   fi
 done
 
-# Check version
-if ! grep -q "^version:" "$CONFIG"; then
+# --- Check version ---
+if [[ -z "$(yaml_get "version")" ]]; then
   warn "No version field. Recommended: version: \"1.0\""
 fi
 
-# Check language
-lang=$(grep "^  language:" "$CONFIG" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"'"'" || true)
+# --- Check language ---
+lang=$(yaml_get "project.language")
 if [[ -n "$lang" ]] && [[ "$lang" != "ja" ]] && [[ "$lang" != "en" ]]; then
   err "Invalid language: $lang (must be 'ja' or 'en')"
 fi
 
-# Check modules
+# --- Check modules ---
 for mod in implement implement_team code_review review_fix full_review plan_status architecture_check; do
-  val=$(grep "  ${mod}:" "$CONFIG" 2>/dev/null | head -1 | sed 's/.*: *//' || true)
+  val=$(yaml_get "modules.$mod")
   if [[ -n "$val" ]] && [[ "$val" != "true" ]] && [[ "$val" != "false" ]]; then
     err "modules.${mod} must be true or false, got: $val"
   fi
 done
 
-# Check models
+# --- Check models ---
 for model_key in reviewer analyzer planner; do
-  val=$(grep "  ${model_key}:" "$CONFIG" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"'"'" || true)
+  val=$(yaml_get "models.$model_key")
   if [[ -n "$val" ]] && [[ "$val" != "sonnet" ]] && [[ "$val" != "opus" ]] && [[ "$val" != "haiku" ]]; then
     warn "models.${model_key}: '$val' — expected sonnet, opus, or haiku"
   fi
