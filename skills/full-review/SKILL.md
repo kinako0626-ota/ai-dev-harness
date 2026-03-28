@@ -1,0 +1,111 @@
+---
+name: full-review
+description: "出荷前の包括レビュー。コード品質・UI監査・UX評価・最終チェックを段階的に自動実行する。/full-review で全フェーズ、/full-review code / ui / final で個別フェーズも可。"
+user-invocable: true
+---
+
+# Full Review — 包括レビューオーケストレーター（Team 委譲型）
+
+`TeamCreate` でレビューチームを組成し、各フェーズの作業をチームメンバーに委譲する。
+チームリード（メイン文脈）にはスコープ判定・チーム調整・サマリー表示のみ保持する。
+
+## 設計原則
+
+- **チームリード（メイン文脈）**: スコープ分析・チーム組成・メッセージ調整・ユーザー確認のみ
+- **重い作業**: すべてチームメンバーに委譲（`SendMessage` で結果を受け取る）
+- **Skill ツールは使わない**: メンバーがスキルの SKILL.md を読んで手順に従う
+- **メンバー定義**: [references/agent-prompts.md](references/agent-prompts.md) にプロンプトテンプレートを集約
+
+## 引数
+
+| 引数 | 実行フェーズ |
+|------|-------------|
+| なし（空） | Phase 1 → 2 → 3 → 4 → 5 全実行 |
+| `code` | Phase 1 → 2 のみ |
+| `ui` | Phase 1 → 3 のみ |
+| `final` | Phase 1 → 5 のみ |
+
+---
+
+## Phase 1: スコープ分析（チームリードで実行）
+
+```bash
+git diff --name-only HEAD
+```
+差分がない場合は `git diff --name-only main...HEAD`。
+自動生成ファイル（CLAUDE.md 参照） は除外。
+
+変更ファイルのパスから自動判定:
+
+| パスパターン | 有効化 |
+|---|---|
+| `プロジェクトのUI層パス（CLAUDE.md 参照）` | UI チェック（Phase 3） |
+| `プロジェクトのコード層パス（CLAUDE.md 参照）` | コードチェック（Phase 2） |
+
+---
+
+## Phase 2: チーム組成とレビュー
+
+`TeamCreate` で `full-review` チームを作成し、agent-prompts.md のテンプレートでメンバーをスポーンする。
+
+- **code-reviewer**: コード変更がある場合
+- **ui-reviewer**: UI 変更がある場合（code-reviewer と並列）
+
+MUST 指摘がある場合は Phase 4a に進む。
+
+---
+
+## Phase 4a: 品質修正
+
+[fix-mapping.md](references/fix-mapping.md) に基づき修正方法にマッピング → `AskUserQuestion` で承認 → fixer をスポーン。
+
+---
+
+## Phase 4b: デザイン強化（UI変更時は常に実行）
+
+agent-prompts.md の「designer」テンプレートでスポーン。
+
+---
+
+## Phase 5: 最終チェック
+
+agent-prompts.md の「polisher」テンプレートでスポーン。
+
+---
+
+## レビュー結果のファイル永続化
+
+[review-report.md](../implement/references/review-report.md) に従い `docs/reviews/` に保存。
+
+---
+
+## クリーンアップ
+
+全メンバーに shutdown_request → `TeamDelete` で解散。
+
+---
+
+## 最終サマリー
+
+```
+## Full Review 完了
+
+**ブランチ**: feature/xxx
+**変更ファイル**: X件
+
+| フェーズ | 結果 |
+|---------|------|
+| コードレビュー | 規約 A / 品質 A / テスト A |
+| UI監査 | Critical 0 / High 1 → 修正済 |
+| 品質修正 | X件修正 |
+| デザイン強化 | colorize, delight 適用 |
+| 最終チェック | PASS — 出荷可能 |
+```
+
+## 注意事項
+
+- 各 Phase の結果はユーザーに表示し、次に進むか確認する
+- コード修正は Phase 4 でユーザー承認後のみ実施する
+- 日本語で出力すること
+
+$ARGUMENTS

@@ -1,0 +1,148 @@
+---
+name: review-fix
+description: "レビュー→修正→再レビューを指摘ゼロになるまで自動ループ実行する。Team委譲で各メンバーのコンテキストを分離。/review-fix で MUST+SHOULD 修正、/review-fix must で MUST のみ。"
+user-invocable: true
+---
+
+# Review-Fix Loop — 指摘ゼロまで自動修正ループ（Team 委譲型）
+
+`TeamCreate` でチームを組成し、レビュー→修正ループをチームメンバーに委譲する。
+チームリード（メイン文脈）にはスコープ判定・ループ制御・サマリー表示のみ保持し、コンテキストウィンドウの圧迫を防ぐ。
+
+## 設計原則
+
+- **チームリード（メイン文脈）**: スコープ分析・ループ制御・メッセージ調整・ユーザー確認のみ
+- **reviewer / fixer**: チーム内で永続し、ラウンド間で `SendMessage` で再利用
+- **各メンバーの作業詳細**: 自身のコンテキストに留まる（メイン文脈に蓄積しない）
+- **Skill ツールは使わない**: メンバーがスキルの SKILL.md を読んで手順に従う
+- **メンバー定義**: [../full-review/references/agent-prompts.md](../full-review/references/agent-prompts.md) にプロンプトテンプレートを集約
+
+## 引数
+
+`$ARGUMENTS` を解析する:
+
+| 引数 | 動作 |
+|------|------|
+| なし（空） | MUST + SHOULD を修正対象とする |
+| `must` | MUST のみ修正対象とする（最小限の修正） |
+| `all` | MUST + SHOULD + NICE すべて修正対象とする |
+
+## 安全制限
+
+- **最大ラウンド数**: 5回（無限ループ防止）
+- **各ラウンド開始前**: 変更サマリーを表示し、ユーザーに続行確認する
+- **修正後**: `プロジェクトの静的解析コマンドを実行（CLAUDE.md 参照）` が通ること
+
+### Context 管理
+- 各ラウンドの修正詳細はチームリードのコンテキストに蓄積しない
+- fixer/reviewer からの SendMessage は要約のみ受け取る
+- **ラウンド 3 以降で指摘が減らない場合**: reviewer と fixer を `TeamDelete` → `TeamCreate` で再作成する（コンテキストリセット）
+
+---
+
+## ステップ 0: スコープ分析とチーム組成
+
+### 0.1 変更ファイルの特定（チームリードで実行）
+
+```bash
+git diff --name-only HEAD
+```
+差分がない場合は `git diff --name-only main...HEAD` を使用。
+自動生成ファイル（CLAUDE.md 参照） は除外。
+
+変更ファイルのパスから判定:
+- コード変更: `プロジェクトのコード層パス（CLAUDE.md 参照）`
+- UI 変更: `プロジェクトのUI層パス（CLAUDE.md 参照）`
+
+### 0.2 チーム作成
+
+```
+TeamCreate:
+  team_name: "review-fix"
+  description: "レビュー→修正ループチーム"
+```
+
+### 0.3 初回レビューメンバーのスポーン
+
+[../full-review/references/agent-prompts.md](../full-review/references/agent-prompts.md) を読み、テンプレートの `{変数}` を埋め込んでスポーンする。
+
+- **code-reviewer**: コード変更がある場合
+- **ui-reviewer**: UI 変更がある場合
+
+### 0.4 初回結果の受信とフィルタリング
+
+引数に基づきフィルタリング:
+- `must`: MUST のみ抽出
+- なし: MUST + SHOULD を抽出
+- `all`: すべて抽出
+
+**修正対象の指摘が 0件** → ループスキップ、デザイン強化へ
+
+---
+
+## ラウンド N（1〜5）: 修正 → 再レビュー
+
+### N.1 修正プランの表示と承認
+
+`AskUserQuestion` でユーザーの承認を得る。
+
+### N.2 修正メンバーへの指示
+
+#### 初回修正（fixer 未スポーン）
+agent-prompts.md の「fixer」テンプレートに `{ISSUE_LIST}` を埋め込んでスポーン。
+
+#### 2回目以降（fixer が既に idle）
+`SendMessage` で新しい指摘リストを送る。
+
+### N.3〜N.5 修正結果受信 → analyze 確認 → 再レビュー
+
+```bash
+プロジェクトの静的解析コマンドを実行（CLAUDE.md 参照）
+```
+
+### ループ終了条件
+
+- **指摘 0件**: ループ終了、デザイン強化へ
+- **前回より増加**: ユーザーに警告し、続行するか確認
+- **ラウンド 5 到達**: 残り指摘をリストアップし、手動対応を推奨して終了
+
+---
+
+## ループ終了後: デザイン強化（UI変更時は常に実行）
+
+UI 変更がある場合、agent-prompts.md の「designer」テンプレートでスポーン。
+各スキルが「改善不要」と判断した場合は変更せずスキップ。
+
+---
+
+## 完了: 最終仕上げ
+
+agent-prompts.md の「polisher」テンプレートでスポーン。
+
+---
+
+## ラウンド履歴のファイル永続化
+
+```
+docs/reviews/{YYYY-MM-DD}_{BRANCH_NAME}_review-fix-history.md
+```
+
+ファイル先頭に YAML frontmatter を付与。
+
+---
+
+## クリーンアップ
+
+全メンバーに `SendMessage`（type: shutdown_request）→ `TeamDelete` で解散。
+
+---
+
+## 注意事項
+
+- 日本語で出力すること
+- reviewer と fixer はラウンド間で再利用する
+- 修正は規約に基づく客観的な指摘のみ対象とする
+- 各ラウンドの修正で新たなバグを入れないよう、analyze を必ず通す
+- 最大5ラウンドを超えた場合は残り指摘をリストアップして終了する
+
+$ARGUMENTS
